@@ -19,10 +19,7 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
             )
 
     def remove_empty_end_space(self, string):
-        if(string):
-            string = string.replace('\n','')
-            string = string if string[-1] != " " else string[:-1]
-        return string
+        return string.replace('\n','').rstrip() if string else string
 
     def extract_info(self, profile_info, field, complete=False):
         info = None

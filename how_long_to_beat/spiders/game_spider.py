@@ -26,9 +26,9 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         for section in profile_info:                
             if(field in section.lower()):
                 if(complete):
-                    country = section[-2].split('strong')[1][1:3]
-                    launch = section[-2].split(
-                        'strong')[2].replace('> ','').replace('</div>','')
+                    temp = section[-2].split('strong')
+                    country = temp[1][1:3]
+                    launch = temp[2].replace('> ','').replace('</div>','')
                     info = f"{country}:{launch}"
                 else:                
                     info = section.split('</strong>')[-1].replace('</div>','')

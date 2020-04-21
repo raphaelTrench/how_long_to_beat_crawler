@@ -12,7 +12,11 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         game_url = 'https://howlongtobeat.com/game?id={}'
         for game_id in range(1,20000):
             url = game_url.format(game_id)
-            yield scrapy.Request(url=url,callback=self.parse_game,meta={'id':game_id})
+            yield scrapy.Request(
+                url=url,
+                callback=self.parse_game,
+                meta={'id':game_id},
+            )
 
     def remove_empty_end_space(self, string):
         if(string):

@@ -166,12 +166,10 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
 
         return playing['dict'], speedrun['dict']
 
-    def validate_url(self,response):
-        valid = True
+    def validate_url(self, response):
         html = response.css('.back_white').extract_first()
-        if(html):
-            valid = not 'The page you are looking for does not exist.' in html
-        return valid
+        not_exist_msg = 'The page you are looking for does not exist.'
+        return (not_exist_msg not in html) if html else True
 
     def parse_game(self, response):
         # make dict gets able to return none

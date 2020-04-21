@@ -84,7 +84,6 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
                 number = number * 1000 
         else:
             number = number.split(' ')[0]
-
         return int(number)
 
     def parse_platform_submissions(self,response):
@@ -94,8 +93,7 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         platform_table = None
         for table in tables:
             if('Platform' in table.extract()):
-                enough_data = not "Not enough data" in table.css('tr').extract()[1]
-                if(enough_data):
+                if(not "Not enough data" in table.css('tr').extract()[1]):
                     platform_table = table.css('tr')[1:]
                 else:
                     return platform_submissions
@@ -122,42 +120,51 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
                     return extracted_table[1:]
         return None
 
-    def parse_playing_time(self,response):
-        results_dict = {}
+    def parse_playing_time(self, response):
+        results_dict = {
+            'playing': {},
+            'speedrun': {},
+        }
         tables_to_compute = []
-        results_dict['playing'] = {}
-        results_dict['speedrun'] = {}
+        playing = results_dict['playing']
+        speedrun = results_dict['speedrun']
 
-        single_player_table = self.get_time_table_by_kind(response, 'Single-Player')
-        results_dict['playing']['categories'] = ['main story', 'extras', 'completionist', 'all']
-        results_dict['playing']['dict'] = {category : {} for category in results_dict['playing']['categories']}
+        single_player_table = self.get_time_table_by_kind(
+            response,
+            'Single-Player',
+        )
+        playing['categories'] = ['main story', 'extras', 'completionist',
+            'all']
+        playing['dict'] = {cat: {} for cat in playing['categories']}
         if(single_player_table):
             tables_to_compute.append('playing')
-            results_dict['playing']['time_table'] = single_player_table
-            results_dict['playing']['columns']= ['polled' , 'average', 'median', 'rushed', 'leisure']
+            playing['time_table'] = single_player_table
+            playing['columns'] = ['polled' , 'average', 'median', 'rushed',
+                'leisure']
 
         speedrun_table = self.get_time_table_by_kind(response, 'Speedrun')
-        results_dict['speedrun']['categories'] = ['any', '100%']
-        results_dict['speedrun']['dict'] = {category : {} for category in results_dict['speedrun']['categories']}
+        speedrun['categories'] = ['any', '100%']
+        speedrun['dict'] = {cat: {} for cat in speedrun['categories']}
         if(speedrun_table):
             tables_to_compute.append('speedrun')
-            results_dict['speedrun']['columns'] = ['polled', 'average', 'median', 'fastest', 'slowest']
-            results_dict['speedrun']['time_table'] = speedrun_table        
+            speedrun['columns'] = ['polled', 'average', 'median', 'fastest',
+                'slowest']
+            speedrun['time_table'] = speedrun_table        
                 
-
-        for _type in tables_to_compute:
-            for idx, row in enumerate(results_dict[_type]['time_table']):
-                category = results_dict[_type]['categories'][idx]                
-                results_dict[_type]['dict'][category] = {}
+        tables = lambda l: (results_dict[i] for i in l)
+        for _type in tables(tables_to_compute):
+            for idx, row in enumerate(_type['time_table']):
+                category = _type['categories'][idx]   
+                _type['dict'][category] = {}
                 extracted_row = row.css('td ::text').extract()[1:]
-                for column_idx, column in enumerate(extracted_row):
-                    if(column_idx == 0):
+                for idy, column in enumerate(extracted_row):
+                    if(not idy):
                         value = self.convert_numbers(column)
                     else:
                         value = self.remove_empty_end_space(column)
-                    results_dict[_type]['dict'][category][results_dict[_type]['columns'][column_idx]] = value
+                    _type['dict'][category][_type['columns'][idy]] = value
 
-        return results_dict['playing']['dict'], results_dict['speedrun']['dict']
+        return playing['dict'], speedrun['dict']
 
     def validate_url(self,response):
         valid = True

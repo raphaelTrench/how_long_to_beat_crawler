@@ -53,21 +53,20 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         return info
 
     def extract_number(self,profile_detail,field):
-        number = None
+        number = ''
         for info in profile_detail:
             if(field in info.lower()):
                 number = info.split(' ')[0]
                 break
 
-        if(not number.isdigit()):
+        if(not number):
             return 0
 
         if('%' in number):
-            number = number.replace('%','')
+            number = int(number.replace('%',''))
         else:
             number = self.convert_numbers(number)
-        
-        return int(number) if number else 0
+        return number
     
     def parse_profile_detail_numbers(self,response):
         profile_detail = response.css(".profile_details li::text").extract()

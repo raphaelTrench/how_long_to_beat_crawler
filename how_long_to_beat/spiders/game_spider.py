@@ -173,74 +173,59 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
 
     def parse_game(self, response):
         # make dict gets able to return none
-        is_game_page = self.validate_url(response)
-        if(is_game_page ):
-            game = GameItem()
+        if not self.validate_url(response):
+            return
 
-            game['website_id'] = response.meta.get('id')
+        info_detail = self.parse_profile_detail_numbers(response)
+        info_section = self.parse_info_section(response)
+        game = GameItem(
+            website_id=response.meta.get('id'),
+            developer=info_section['developer'],
+            publisher=info_section['publisher'],
+            platforms=info_section['playable'],
+            genres=info_section['genre'],
+            launch_dates=info_section['launch_dates'],
+            game_type=(info_section['type'] or "game"),
+            last_updated=info_section['updated'],
+            playing=info_detail['playing'],
+            rating=info_detail['rating'],
+            retired=info_detail['retired'],
+            beat=info_detail['beat'],
+            replays=info_detail['replay'],
+            description=self.remove_empty_end_space(
+                response.css("p::text").extract_first()),
+            name=self.remove_empty_end_space(
+                response.css(".shadow_text::text").extract_first()),
+            submissions_per_platform=self.parse_platform_submissions(
+                response),
+        )
 
-            game['description'] = self.remove_empty_end_space(
-                response.css("p::text").extract_first())
+        playing_time, speedrun = self.parse_playing_time(response)
 
-            game['name'] = self.remove_empty_end_space(
-                response.css(".shadow_text::text").extract_first())
+        fields = {
+            'main_story_duration': 'main story',
+            'main_story_plus_extras_duration': 'extras',
+            'completionist_duration': 'completionist',
+            'all_styles_duration': 'all',
+        }
+        for field, key in fields.items():
+            data = playing_time[key]
+            game[f'{field}_average'] = data.get('average')
+            game[f'{field}_median'] = data.get('median')
+            game[f'{field}_rushed'] = data.get('rushed')
+            game[f'{field}_leisure'] = data.get('leisure')
+            game[f'{field}_submissions'] = data.get('polled')
 
-            info_section = self.parse_info_section(response)
-            game['developer'] = info_section['developer']
-            game['publisher'] = info_section['publisher']
-            game['platforms'] = info_section['playable']
-            game['genres']    = info_section['genre']
-            game['launch_dates'] = info_section['launch_dates']
-            game['game_type'] = info_section['type'] or "game"
-            game['last_updated'] = info_section['updated']
-            
-            info_detail = self.parse_profile_detail_numbers(response)
-            game['playing'] = info_detail['playing']
-            game['rating'] = info_detail['rating']
-            game['retired'] = info_detail['retired']
-            game['beat'] = info_detail['beat']
-            game['replays'] = info_detail['replay']
+        fields = {
+            'any_percent_speedrun_duration': 'any',
+            'one_hundred_percent_speedrun_duration': '100%',
+        }
+        for field, key in fields.items():
+            data = speedrun[key]
+            game[f'{field}_median'] = data.get('average')
+            game[f'{field}_average'] = data.get('median')
+            game[f'{field}_fastest'] = data.get('fastest')
+            game[f'{field}_slowest'] = data.get('slowest')
+            game[f'{field}_polled'] = data.get('polled')
 
-            game['submissions_per_platform'] = self.parse_platform_submissions(response)
-
-            playing_time_dict, speedrun_dict = self.parse_playing_time(response)
-
-            game['main_story_duration_average'] =     playing_time_dict['main story'].get('average')
-            game['main_story_duration_median'] =      playing_time_dict['main story'].get('median')
-            game['main_story_duration_rushed'] =      playing_time_dict['main story'].get('rushed')
-            game['main_story_duration_leisure'] =     playing_time_dict['main story'].get('leisure')
-            game['main_story_duration_submissions'] = playing_time_dict['main story'].get('polled')
-
-            game['main_story_plus_extras_duration_average'] = playing_time_dict['extras'].get('average')
-            game['main_story_plus_extras_duration_median'] = playing_time_dict['extras'].get('median')
-            game['main_story_plus_extras_duration_rushed'] = playing_time_dict['extras'].get('rushed')
-            game['main_story_plus_extras_duration_leisure'] = playing_time_dict['extras'].get('leisure')
-            game['main_story_plus_extras_duration_submissions'] = playing_time_dict['extras'].get('polled')
-
-            game['completionist_duration_average'] = playing_time_dict['completionist'].get('average')
-            game['completionist_duration_median'] = playing_time_dict['completionist'].get('median')
-            game['completionist_duration_rushed'] = playing_time_dict['completionist'].get('rushed')
-            game['completionist_duration_leisure'] = playing_time_dict['completionist'].get('leisure')
-            game['completionist_duration_submissions'] = playing_time_dict['completionist'].get('polled')
-
-            game['all_styles_duration_average'] = playing_time_dict['all'].get('average')
-            game['all_styles_duration_median'] = playing_time_dict['all'].get('median')
-            game['all_styles_duration_rushed'] = playing_time_dict['all'].get('rushed')
-            game['all_styles_duration_leisure'] = playing_time_dict['all'].get('leisure')
-            game['all_styles_duration_submissions'] = playing_time_dict['all'].get('polled')
-
-            game['any_percent_spdeedrun_duration_median'] = speedrun_dict['any'].get('average')
-            game['any_percent_spdeedrun_duration_average'] = speedrun_dict['any'].get('median')
-            game['any_percent_spdeedrun_duration_fastest'] = speedrun_dict['any'].get('fastest')
-            game['any_percent_spdeedrun_duration_slowest'] = speedrun_dict['any'].get('slowest')
-            game['any_percent_spdeedrun_duration_polled'] = speedrun_dict['any'].get('polled')
-
-            game['one_hundred_percent_spdeedrun_duration_average'] = speedrun_dict['100%'].get('average')
-            game['one_hundred_percent_spdeedrun_duration_median'] = speedrun_dict['100%'].get('median')
-            game['one_hundred_percent_spdeedrun_duration_fastest'] = speedrun_dict['100%'].get('fastest')
-            game['one_hundred_percent_spdeedrun_duration_slowest'] = speedrun_dict['100%'].get('slowest')
-            game['one_hundred_percent_spdeedrun_duration_polled'] = speedrun_dict['100%'].get('polled')
-
-            yield game
-
-            
+        return game

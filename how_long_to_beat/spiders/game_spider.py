@@ -38,15 +38,17 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
     def parse_info_section(self,response):
         profile_info = response.css("p+ div div").extract()
 
-        info = {}
-        for field in ['developer', 'publisher', 'playable', 'genre', 'type',
-        'updated']:
-            info[field] = self.extract_info(profile_info, field)
+        fields = ['developer', 'publisher', 'playable', 'genre', 'type',
+            'updated']
+        info = {f: self.extract_info(profile_info, f) for f in fields}
 
-        info['launch_dates'] = ",".join([self.extract_info(
-            profile_info,country,True) for country in ['JP','NA','EU'] if(
-                self.extract_info(profile_info,country,True)
-            )])
+        dates = []
+        for country in ['JP','NA','EU']:
+            date = self.extract_info(profile_info, country, True)
+            if date:
+                dates.append(date)
+
+        info['launch_dates'] = ",".join(dates)
         
         return info
 

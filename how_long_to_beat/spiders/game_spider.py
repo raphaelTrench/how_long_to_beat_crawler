@@ -70,11 +70,8 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
     
     def parse_profile_detail_numbers(self,response):
         profile_detail = response.css(".profile_details li::text").extract()
-        
-        detail_info = {}
-        for field in ['playing', 'beat', 'retired', 'rating', 'replay', 'backlog']:
-            detail_info[field] = self.extract_number(profile_detail, field)
-        return detail_info
+        fields = ['playing', 'beat', 'retired', 'rating', 'replay', 'backlog']
+        return {f: self.extract_number(profile_detail, f) for f in fields}
 
     def convert_numbers(self,number):
         if('K' in number):

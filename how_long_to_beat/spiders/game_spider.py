@@ -63,10 +63,9 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
             return 0
 
         if('%' in number):
-            number = int(number.replace('%',''))
-        else:
-            number = self.convert_numbers(number)
-        return number
+            return int(number.replace('%',''))
+            
+        return self.convert_numbers(number)
     
     def parse_profile_detail_numbers(self,response):
         profile_detail = response.css(".profile_details li::text").extract()
@@ -81,10 +80,9 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
                     number = (int(number1) + (int(number2) * 0.1))
                 else:
                     number = int(numbers[0])                    
-                number = number * 1000 
-        else:
-            number = number.split(' ')[0]
-        return int(number)
+                return number * 1000
+                
+        return int(number.split(' ')[0])
 
     def parse_platform_submissions(self,response):
         platform_submissions = []

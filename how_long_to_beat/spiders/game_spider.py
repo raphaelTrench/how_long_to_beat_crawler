@@ -4,7 +4,8 @@ from ..items import GameItem
 from os import path
 import requests as re
 # scrapy crawl game_spider -t csv -o -> games.csv
-class GameSpider(Spider): #since the search page is generated dynamically, CrawlSpider wont work
+class GameSpider(Spider): 
+#since the search page is generated dynamically, CrawlSpider wont work
     name = 'game_spider'
     start_urls = ['https://howlongtobeat.com/']
 
@@ -220,8 +221,8 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         }
         for field, key in fields.items():
             data = speedrun[key]
-            game[f'{field}_median'] = data.get('average')
-            game[f'{field}_average'] = data.get('median')
+            game[f'{field}_median'] = data.get('median')
+            game[f'{field}_average'] = data.get('average')
             game[f'{field}_fastest'] = data.get('fastest')
             game[f'{field}_slowest'] = data.get('slowest')
             game[f'{field}_polled'] = data.get('polled')

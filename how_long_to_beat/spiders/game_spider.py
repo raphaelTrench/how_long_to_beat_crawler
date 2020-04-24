@@ -73,7 +73,7 @@ class GameSpider(Spider):
         fields = ['playing', 'beat', 'retired', 'rating', 'replay', 'backlog']
         return {f: self.extract_number(profile_detail, f) for f in fields}
 
-    def convert_numbers(self,number):
+    def convert_numbers(self, number):
         if('K' in number):
                 numbers = number.split('K')[0].split('.')
                 if(len(numbers) > 1):
@@ -82,8 +82,10 @@ class GameSpider(Spider):
                 else:
                     number = int(numbers[0])                    
                 return number * 1000
-                
-        return int(number.split(' ')[0])
+        
+        
+        number = number.split(' ')[0]
+        return int(number) if number.isdigit() else None
 
     def parse_platform_submissions(self,response):
         platform_submissions = []

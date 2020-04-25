@@ -4,7 +4,8 @@ from ..items import GameItem
 from os import path
 import requests as re
 # scrapy crawl game_spider -t csv -o -> games.csv
-class GameSpider(Spider): #since the search page is generated dynamically, CrawlSpider wont work
+class GameSpider(Spider): 
+#since the search page is generated dynamically, CrawlSpider wont work
     name = 'game_spider'
     start_urls = ['https://howlongtobeat.com/']
 
@@ -12,22 +13,23 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         game_url = 'https://howlongtobeat.com/game?id={}'
         for game_id in range(1,20000):
             url = game_url.format(game_id)
-            yield scrapy.Request(url=url,callback=self.parse_game,meta={'id':game_id})
+            yield scrapy.Request(
+                url=url,
+                callback=self.parse_game,
+                meta={'id':game_id},
+            )
 
     def remove_empty_end_space(self, string):
-        if(string):
-            string = string.replace('\n','')
-            string = string if string[-1] != " " else string[:-1]
-        return string
+        return string.replace('\n','').rstrip() if string else string
 
     def extract_info(self, profile_info, field, complete=False):
         info = None
         for section in profile_info:                
             if(field in section.lower()):
                 if(complete):
-                    country = section[-2].split('strong')[1][1:3]
-                    launch = section[-2].split(
-                        'strong')[2].replace('> ','').replace('</div>','')
+                    temp = section[-2].split('strong')
+                    country = temp[1][1:3]
+                    launch = temp[2].replace('> ','').replace('</div>','')
                     info = f"{country}:{launch}"
                 else:                
                     info = section.split('</strong>')[-1].replace('</div>','')
@@ -37,44 +39,41 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
     def parse_info_section(self,response):
         profile_info = response.css("p+ div div").extract()
 
-        info = {}
-        for field in ['developer', 'publisher', 'playable', 'genre', 'type',
-        'updated']:
-            info[field] = self.extract_info(profile_info, field)
+        fields = ['developer', 'publisher', 'playable', 'genre', 'type',
+            'updated']
+        info = {f: self.extract_info(profile_info, f) for f in fields}
 
-        info['launch_dates'] = ",".join([self.extract_info(
-            profile_info,country,True) for country in ['JP','NA','EU'] if(
-                self.extract_info(profile_info,country,True)
-            )])
+        dates = []
+        for country in ['JP','NA','EU']:
+            date = self.extract_info(profile_info, country, True)
+            if date:
+                dates.append(date)
+
+        info['launch_dates'] = ",".join(dates)
         
         return info
 
     def extract_number(self,profile_detail,field):
-        number = None
+        number = ''
         for info in profile_detail:
             if(field in info.lower()):
                 number = info.split(' ')[0]
                 break
 
-        if(not number.isdigit()):
+        if(not number):
             return 0
 
         if('%' in number):
-            number = number.replace('%','')
-        else:
-            number = self.convert_numbers(number)
-        
-        return int(number) if number else 0
+            return int(number.replace('%',''))
+            
+        return self.convert_numbers(number)
     
     def parse_profile_detail_numbers(self,response):
         profile_detail = response.css(".profile_details li::text").extract()
-        
-        detail_info = {}
-        for field in ['playing', 'beat', 'retired', 'rating', 'replay', 'backlog']:
-            detail_info[field] = self.extract_number(profile_detail, field)
-        return detail_info
+        fields = ['playing', 'beat', 'retired', 'rating', 'replay', 'backlog']
+        return {f: self.extract_number(profile_detail, f) for f in fields}
 
-    def convert_numbers(self,number):
+    def convert_numbers(self, number):
         if('K' in number):
                 numbers = number.split('K')[0].split('.')
                 if(len(numbers) > 1):
@@ -82,11 +81,11 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
                     number = (int(number1) + (int(number2) * 0.1))
                 else:
                     number = int(numbers[0])                    
-                number = number * 1000 
-        else:
-            number = number.split(' ')[0]
-
-        return int(number)
+                return number * 1000
+        
+        
+        number = number.split(' ')[0]
+        return int(number) if number.isdigit() else None
 
     def parse_platform_submissions(self,response):
         platform_submissions = []
@@ -95,8 +94,7 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
         platform_table = None
         for table in tables:
             if('Platform' in table.extract()):
-                enough_data = not "Not enough data" in table.css('tr').extract()[1]
-                if(enough_data):
+                if(not "Not enough data" in table.css('tr').extract()[1]):
                     platform_table = table.css('tr')[1:]
                 else:
                     return platform_submissions
@@ -123,120 +121,112 @@ class GameSpider(Spider): #since the search page is generated dynamically, Crawl
                     return extracted_table[1:]
         return None
 
-    def parse_playing_time(self,response):
-        results_dict = {}
+    def parse_playing_time(self, response):
+        results_dict = {
+            'playing': {},
+            'speedrun': {},
+        }
         tables_to_compute = []
-        results_dict['playing'] = {}
-        results_dict['speedrun'] = {}
+        playing = results_dict['playing']
+        speedrun = results_dict['speedrun']
 
-        single_player_table = self.get_time_table_by_kind(response, 'Single-Player')
-        results_dict['playing']['categories'] = ['main story', 'extras', 'completionist', 'all']
-        results_dict['playing']['dict'] = {category : {} for category in results_dict['playing']['categories']}
+        single_player_table = self.get_time_table_by_kind(
+            response,
+            'Single-Player',
+        )
+        playing['categories'] = ['main story', 'extras', 'completionist',
+            'all']
+        playing['dict'] = {cat: {} for cat in playing['categories']}
         if(single_player_table):
             tables_to_compute.append('playing')
-            results_dict['playing']['time_table'] = single_player_table
-            results_dict['playing']['columns']= ['polled' , 'average', 'median', 'rushed', 'leisure']
+            playing['time_table'] = single_player_table
+            playing['columns'] = ['polled' , 'average', 'median', 'rushed',
+                'leisure']
 
         speedrun_table = self.get_time_table_by_kind(response, 'Speedrun')
-        results_dict['speedrun']['categories'] = ['any', '100%']
-        results_dict['speedrun']['dict'] = {category : {} for category in results_dict['speedrun']['categories']}
+        speedrun['categories'] = ['any', '100%']
+        speedrun['dict'] = {cat: {} for cat in speedrun['categories']}
         if(speedrun_table):
             tables_to_compute.append('speedrun')
-            results_dict['speedrun']['columns'] = ['polled', 'average', 'median', 'fastest', 'slowest']
-            results_dict['speedrun']['time_table'] = speedrun_table        
+            speedrun['columns'] = ['polled', 'average', 'median', 'fastest',
+                'slowest']
+            speedrun['time_table'] = speedrun_table        
                 
-
-        for _type in tables_to_compute:
-            for idx, row in enumerate(results_dict[_type]['time_table']):
-                category = results_dict[_type]['categories'][idx]                
-                results_dict[_type]['dict'][category] = {}
+        tables = lambda l: (results_dict[i] for i in l)
+        for _type in tables(tables_to_compute):
+            for idx, row in enumerate(_type['time_table']):
+                category = _type['categories'][idx]   
+                _type['dict'][category] = {}
                 extracted_row = row.css('td ::text').extract()[1:]
-                for column_idx, column in enumerate(extracted_row):
-                    if(column_idx == 0):
+                for idy, column in enumerate(extracted_row):
+                    if(not idy):
                         value = self.convert_numbers(column)
                     else:
                         value = self.remove_empty_end_space(column)
-                    results_dict[_type]['dict'][category][results_dict[_type]['columns'][column_idx]] = value
+                    _type['dict'][category][_type['columns'][idy]] = value
 
-        return results_dict['playing']['dict'], results_dict['speedrun']['dict']
+        return playing['dict'], speedrun['dict']
 
-    def validate_url(self,response):
-        valid = True
+    def validate_url(self, response):
         html = response.css('.back_white').extract_first()
-        if(html):
-            valid = not 'The page you are looking for does not exist.' in html
-        return valid
+        not_exist_msg = 'The page you are looking for does not exist.'
+        return (not_exist_msg not in html) if html else True
 
     def parse_game(self, response):
         # make dict gets able to return none
-        is_game_page = self.validate_url(response)
-        if(is_game_page ):
-            game = GameItem()
+        if not self.validate_url(response):
+            return
 
-            game['website_id'] = response.meta.get('id')
+        info_detail = self.parse_profile_detail_numbers(response)
+        info_section = self.parse_info_section(response)
+        game = GameItem(
+            website_id=response.meta.get('id'),
+            developer=info_section['developer'],
+            publisher=info_section['publisher'],
+            platforms=info_section['playable'],
+            genres=info_section['genre'],
+            launch_dates=info_section['launch_dates'],
+            game_type=(info_section['type'] or "game"),
+            last_updated=info_section['updated'],
+            playing=info_detail['playing'],
+            rating=info_detail['rating'],
+            retired=info_detail['retired'],
+            beat=info_detail['beat'],
+            replays=info_detail['replay'],
+            description=self.remove_empty_end_space(
+                response.css("p::text").extract_first()),
+            name=self.remove_empty_end_space(
+                response.css(".shadow_text::text").extract_first()),
+            submissions_per_platform=self.parse_platform_submissions(
+                response),
+        )
 
-            game['description'] = self.remove_empty_end_space(
-                response.css("p::text").extract_first())
+        playing_time, speedrun = self.parse_playing_time(response)
 
-            game['name'] = self.remove_empty_end_space(
-                response.css(".shadow_text::text").extract_first())
+        fields = {
+            'main_story_duration': 'main story',
+            'main_story_plus_extras_duration': 'extras',
+            'completionist_duration': 'completionist',
+            'all_styles_duration': 'all',
+        }
+        for field, key in fields.items():
+            data = playing_time[key]
+            game[f'{field}_average'] = data.get('average')
+            game[f'{field}_median'] = data.get('median')
+            game[f'{field}_rushed'] = data.get('rushed')
+            game[f'{field}_leisure'] = data.get('leisure')
+            game[f'{field}_submissions'] = data.get('polled')
 
-            info_section = self.parse_info_section(response)
-            game['developer'] = info_section['developer']
-            game['publisher'] = info_section['publisher']
-            game['platforms'] = info_section['playable']
-            game['genres']    = info_section['genre']
-            game['launch_dates'] = info_section['launch_dates']
-            game['game_type'] = info_section['type'] or "game"
-            game['last_updated'] = info_section['updated']
-            
-            info_detail = self.parse_profile_detail_numbers(response)
-            game['playing'] = info_detail['playing']
-            game['rating'] = info_detail['rating']
-            game['retired'] = info_detail['retired']
-            game['beat'] = info_detail['beat']
-            game['replays'] = info_detail['replay']
+        fields = {
+            'any_percent_speedrun_duration': 'any',
+            'one_hundred_percent_speedrun_duration': '100%',
+        }
+        for field, key in fields.items():
+            data = speedrun[key]
+            game[f'{field}_median'] = data.get('median')
+            game[f'{field}_average'] = data.get('average')
+            game[f'{field}_fastest'] = data.get('fastest')
+            game[f'{field}_slowest'] = data.get('slowest')
+            game[f'{field}_polled'] = data.get('polled')
 
-            game['submissions_per_platform'] = self.parse_platform_submissions(response)
-
-            playing_time_dict, speedrun_dict = self.parse_playing_time(response)
-
-            game['main_story_duration_average'] =     playing_time_dict['main story'].get('average')
-            game['main_story_duration_median'] =      playing_time_dict['main story'].get('median')
-            game['main_story_duration_rushed'] =      playing_time_dict['main story'].get('rushed')
-            game['main_story_duration_leisure'] =     playing_time_dict['main story'].get('leisure')
-            game['main_story_duration_submissions'] = playing_time_dict['main story'].get('polled')
-
-            game['main_story_plus_extras_duration_average'] = playing_time_dict['extras'].get('average')
-            game['main_story_plus_extras_duration_median'] = playing_time_dict['extras'].get('median')
-            game['main_story_plus_extras_duration_rushed'] = playing_time_dict['extras'].get('rushed')
-            game['main_story_plus_extras_duration_leisure'] = playing_time_dict['extras'].get('leisure')
-            game['main_story_plus_extras_duration_submissions'] = playing_time_dict['extras'].get('polled')
-
-            game['completionist_duration_average'] = playing_time_dict['completionist'].get('average')
-            game['completionist_duration_median'] = playing_time_dict['completionist'].get('median')
-            game['completionist_duration_rushed'] = playing_time_dict['completionist'].get('rushed')
-            game['completionist_duration_leisure'] = playing_time_dict['completionist'].get('leisure')
-            game['completionist_duration_submissions'] = playing_time_dict['completionist'].get('polled')
-
-            game['all_styles_duration_average'] = playing_time_dict['all'].get('average')
-            game['all_styles_duration_median'] = playing_time_dict['all'].get('median')
-            game['all_styles_duration_rushed'] = playing_time_dict['all'].get('rushed')
-            game['all_styles_duration_leisure'] = playing_time_dict['all'].get('leisure')
-            game['all_styles_duration_submissions'] = playing_time_dict['all'].get('polled')
-
-            game['any_percent_spdeedrun_duration_median'] = speedrun_dict['any'].get('average')
-            game['any_percent_spdeedrun_duration_average'] = speedrun_dict['any'].get('median')
-            game['any_percent_spdeedrun_duration_fastest'] = speedrun_dict['any'].get('fastest')
-            game['any_percent_spdeedrun_duration_slowest'] = speedrun_dict['any'].get('slowest')
-            game['any_percent_spdeedrun_duration_polled'] = speedrun_dict['any'].get('polled')
-
-            game['one_hundred_percent_spdeedrun_duration_average'] = speedrun_dict['100%'].get('average')
-            game['one_hundred_percent_spdeedrun_duration_median'] = speedrun_dict['100%'].get('median')
-            game['one_hundred_percent_spdeedrun_duration_fastest'] = speedrun_dict['100%'].get('fastest')
-            game['one_hundred_percent_spdeedrun_duration_slowest'] = speedrun_dict['100%'].get('slowest')
-            game['one_hundred_percent_spdeedrun_duration_polled'] = speedrun_dict['100%'].get('polled')
-
-            yield game
-
-            
+        return game

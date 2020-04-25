@@ -54,17 +54,14 @@ class GameItem(scrapy.Item):
     all_styles_duration_leisure = scrapy.Field()
     all_styles_duration_submissions = scrapy.Field()
 
-    any_percent_spdeedrun_duration_average = scrapy.Field()
-    any_percent_spdeedrun_duration_median = scrapy.Field()
-    any_percent_spdeedrun_duration_fastest = scrapy.Field()
-    any_percent_spdeedrun_duration_slowest = scrapy.Field()
-    any_percent_spdeedrun_duration_polled = scrapy.Field()
+    any_percent_speedrun_duration_average = scrapy.Field()
+    any_percent_speedrun_duration_median = scrapy.Field()
+    any_percent_speedrun_duration_fastest = scrapy.Field()
+    any_percent_speedrun_duration_slowest = scrapy.Field()
+    any_percent_speedrun_duration_polled = scrapy.Field()
 
-    one_hundred_percent_spdeedrun_duration_average = scrapy.Field()
-    one_hundred_percent_spdeedrun_duration_median = scrapy.Field()
-    one_hundred_percent_spdeedrun_duration_fastest = scrapy.Field()
-    one_hundred_percent_spdeedrun_duration_slowest = scrapy.Field()
-    one_hundred_percent_spdeedrun_duration_polled = scrapy.Field()
-
-
-
+    one_hundred_percent_speedrun_duration_average = scrapy.Field()
+    one_hundred_percent_speedrun_duration_median = scrapy.Field()
+    one_hundred_percent_speedrun_duration_fastest = scrapy.Field()
+    one_hundred_percent_speedrun_duration_slowest = scrapy.Field()
+    one_hundred_percent_speedrun_duration_polled = scrapy.Field()
